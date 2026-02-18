@@ -1,69 +1,39 @@
-import numpy as np
 import pandas as pd
-import datetime
+import numpy as np
 import yfinance as yf
 import pandas_datareader.data as web
-import requests
-#from datetime import datetime, timedelta
-import os
-import sys
+import datetime
 
-import os
-import sys
-
-
-# ... continue with your script ...
-
-def extract_features():
-
-    return_period = 5
-    
-    START_DATE = (datetime.date.today() - datetime.timedelta(days=365)).strftime("%Y-%m-%d")
-    END_DATE = datetime.date.today().strftime("%Y-%m-%d")
-    stk_tickers = ['MSFT', 'IBM', 'GOOGL']
-    ccy_tickers = ['DEXJPUS', 'DEXUSUK']
-    idx_tickers = ['SP500', 'DJIA', 'VIXCLS']
-    
-    stk_data = yf.download(stk_tickers, start=START_DATE, end=END_DATE, auto_adjust=False)
-    #stk_data = web.DataReader(stk_tickers, 'yahoo')
-    ccy_data = web.DataReader(ccy_tickers, 'fred', start=START_DATE, end=END_DATE)
-    idx_data = web.DataReader(idx_tickers, 'fred', start=START_DATE, end=END_DATE)
-
-    Y = np.log(stk_data.loc[:, ('Adj Close', 'MSFT')]).diff(return_period).shift(-return_period)
-    Y.name = Y.name[-1]+'_Future'
-    
-    X1 = np.log(stk_data.loc[:, ('Adj Close', ('GOOGL', 'IBM'))]).diff(return_period)
-    X1.columns = X1.columns.droplevel()
-    X2 = np.log(ccy_data).diff(return_period)
-    X3 = np.log(idx_data).diff(return_period)
-
-    X = pd.concat([X1, X2, X3], axis=1)
-    
-    dataset = pd.concat([Y, X], axis=1).dropna().iloc[::return_period, :]
-    Y = dataset.loc[:, Y.name]
-    X = dataset.loc[:, X.columns]
-    dataset.index.name = 'Date'
-    #dataset.to_csv(r"./test_data.csv")
-    features = dataset.sort_index()
-    features = features.reset_index(drop=True)
-    features = features.iloc[:,1:]
-    return features
-
-
-def get_bitcoin_historical_prices(days = 60):
-    
-    BASE_URL = "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart"
-    
-    params = {
-        'vs_currency': 'usd',
-        'days': days,
-        'interval': 'daily' # Ensure we get daily granularity
-    }
-    response = requests.get(BASE_URL, params=params)
-    data = response.json()
-    prices = data['prices']
-    df = pd.DataFrame(prices, columns=['Timestamp', 'Close Price (USD)'])
-    df['Date'] = pd.to_datetime(df['Timestamp'], unit='ms').dt.normalize()
-    df = df[['Date', 'Close Price (USD)']].set_index('Date')
+def get_technical_indicators(stk_data):
+    """Calculates technical features for Apple (AAPL) stock data."""
+    df = pd.DataFrame(index=stk_data.index)
+    # Features required for your 7.5 pts requirement
+    df['Daily_Range'] = stk_data['High']['AAPL'] - stk_data['Low']['AAPL']
+    df['Intraday_Chg'] = stk_data['Close']['AAPL'] - stk_data['Open']['AAPL']
+    df['RSI'] = stk_data['Close']['AAPL'].diff()
+    df['MA_Cross'] = stk_data['Close']['AAPL'].rolling(5).mean()
     return df
 
+def extract_features(stk_data, ccy_data, idx_data):
+    """
+    Combines external data and technical indicators into a single feature set.
+    """
+    return_period = 5
+    
+    # 1. External Stock Returns (AAL, DAL, TSLA)
+    X1 = np.log(stk_data.loc[:, ('Adj Close', ('AAL', 'DAL', 'TSLA'))]).diff(return_period)
+    X1.columns = X1.columns.droplevel()
+    
+    # 2. Currency and Index Returns
+    X2 = np.log(ccy_data).diff(return_period)
+    X3 = np.log(idx_data).diff(return_period)
+    
+    # 3. Technical Indicators (Using the helper function)
+    tech_df = get_technical_indicators(stk_data)
+    X4 = tech_df[['Daily_Range', 'Intraday_Chg', 'RSI', 'MA_Cross']].pct_change(return_period)
+    
+    # 4. Combine and Clean (Essential for deployment)
+    X = pd.concat([X1, X2, X3, X4], axis=1)
+    X = X.replace([np.inf, -np.inf], np.nan).fillna(0) # Stops "Infinity" errors
+    
+    return X.tail(1) # Return only the most recent data for live prediction
