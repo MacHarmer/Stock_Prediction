@@ -20,7 +20,6 @@ from sagemaker.deserializers import NumpyDeserializer
 from sklearn.pipeline import Pipeline
 import shap
 
-
 # Setup & Path Configuration
 warnings.simplefilter("ignore")
 
@@ -40,7 +39,7 @@ aws_bucket = st.secrets["aws_credentials"]["AWS_BUCKET"]
 aws_endpoint = st.secrets["aws_credentials"]["AWS_ENDPOINT"]
 
 # AWS Session Management
-@st.cache_resource # Use this to avoid downloading the file every time the page refreshes
+@st.cache_resource 
 def get_session(aws_id, aws_secret, aws_token):
     return boto3.Session(
         aws_access_key_id=aws_id,
@@ -55,12 +54,15 @@ sm_session = sagemaker.Session(boto_session=session)
 # Data & Model Configuration
 df_features = extract_features()
 
+# CHANGE 1: Updated Feature List to match your 13 new features
+FEATURE_LIST = ["AAL", "DAL", "TSLA", "DEXJPUS", "DEXUSUK", "DEXCHUS", "SP500", "DJIA", "VIXCLS", "AAPL_Mom", "AAPL_Vol", "AAPL_Gap", "AAPL_SMA_Ratio"]
+
 MODEL_INFO = {
         "endpoint": aws_endpoint,
         "explainer": 'explainer.shap',
         "pipeline": 'finalized_model.tar.gz',
-        "keys": ["GOOGL", "IBM", "DEXJPUS", "DEXUSUK", "SP500", "DJIA", "VIXCLS"],
-        "inputs": [{"name": k, "type": "number", "min": -1.0, "max": 1.0, "default": 0.0, "step": 0.01} for k in ["GOOGL", "IBM", "DEXJPUS", "DEXUSUK", "SP500", "DJIA", "VIXCLS"]]
+        "keys": FEATURE_LIST,
+        "inputs": [{"name": k, "type": "number", "min": -1.0, "max": 1.0, "default": 0.0, "step": 0.01} for k in FEATURE_LIST]
 }
 
 def load_pipeline(_session, bucket, key):
@@ -71,19 +73,14 @@ def load_pipeline(_session, bucket, key):
         Filename=filename, 
         Bucket=bucket, 
         Key= f"{key}/{os.path.basename(filename)}")
-        # Extract the .joblib file from the .tar.gz
     with tarfile.open(filename, "r:gz") as tar:
         tar.extractall(path=".")
         joblib_file = [f for f in tar.getnames() if f.endswith('.joblib')][0]
 
-    # Load the full pipeline
     return joblib.load(f"{joblib_file}")
 
 def load_shap_explainer(_session, bucket, key, local_path):
     s3_client = _session.client('s3')
-    local_path = local_path
-
-    # Only download if it doesn't exist locally to save time
     if not os.path.exists(local_path):
         s3_client.download_file(Filename=local_path, Bucket=bucket, Key=key)
         
@@ -92,7 +89,6 @@ def load_shap_explainer(_session, bucket, key, local_path):
 
 # Prediction Logic
 def call_model_api(input_df):
-
     predictor = Predictor(
         endpoint_name=MODEL_INFO["endpoint"],
         sagemaker_session=sm_session,
@@ -116,7 +112,6 @@ def display_explanation(input_df, session, aws_bucket):
     fig, ax = plt.subplots(figsize=(10, 4))
     shap.plots.waterfall(shap_values[0], max_display=10)
     st.pyplot(fig)
-    # top feature   
     top_feature = shap_values[0].feature_names[0]
     st.info(f"**Business Insight:** The most influential factor in this decision was **{top_feature}**.")
 
@@ -139,18 +134,15 @@ with st.form("pred_form"):
     submitted = st.form_submit_button("Run Prediction")
 
 if submitted:
-
     data_row = [user_inputs[k] for k in MODEL_INFO["keys"]]
-    # Prepare data
-    base_df = df_features
-    input_df = pd.concat([base_df, pd.DataFrame([data_row], columns=base_df.columns)])
+    
+    # CHANGE 2: Creating input_df directly using the new keys. 
+    # This replaces the old Line 146 pd.concat mismatch.
+    input_df = pd.DataFrame([data_row], columns=MODEL_INFO["keys"])
     
     res, status = call_model_api(input_df)
     if status == 200:
         st.metric("Prediction Result", res)
-        display_explanation(input_df,session, aws_bucket)
+        display_explanation(input_df, session, aws_bucket)
     else:
         st.error(res)
-
-
-
