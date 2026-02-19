@@ -37,7 +37,33 @@ def extract_features():
     X2 = np.log(ccy_data).diff(return_period)
     X3 = np.log(idx_data).diff(return_period)
 
-    X = pd.concat([X1, X2, X3], axis=1)
+
+# --- ADD THIS LOGIC BEFORE YOUR X = pd.concat LINE ---
+
+# 1. Price Momentum (5-day return)
+X4_1 = np.log(stk_data.loc[:, ('Adj Close', 'AAPL')]).diff(5)
+
+# 2. Daily Volatility (High minus Low)
+X4_2 = (stk_data.loc[:, ('High', 'AAPL')] - stk_data.loc[:, ('Low', 'AAPL')])
+
+# 3. Gap (Open minus previous Close)
+X4_3 = stk_data.loc[:, ('Open', 'AAPL')] - stk_data.loc[:, ('Adj Close', 'AAPL')].shift(1)
+
+# 4. Simple Moving Average Ratio (Current Price / 20-day SMA)
+sma20 = stk_data.loc[:, ('Adj Close', 'AAPL')].rolling(window=20).mean()
+X4_4 = stk_data.loc[:, ('Adj Close', 'AAPL')] / sma20
+
+# Combine them into X4
+X4 = pd.concat([X4_1, X4_2, X4_3, X4_4], axis=1)
+X4.columns = ['AAPL_Mom', 'AAPL_Vol', 'AAPL_Gap', 'AAPL_SMA_Ratio']
+
+# --- NOW UPDATE YOUR CONCAT LINE ---
+
+
+
+
+    
+    X = pd.concat([X1, X2, X3, X4], axis=1)
     
     dataset = pd.concat([Y, X], axis=1).dropna().iloc[::return_period, :]
     Y = dataset.loc[:, Y.name]
@@ -47,6 +73,11 @@ def extract_features():
     features = dataset.sort_index()
     features = features.reset_index(drop=True)
     features = features.iloc[:,1:]
+
+    
+    # Return only the X columns (features) without cutting any off
+    features = dataset[X.columns].sort_index().reset_index(drop=True)
+    
     return features
 
 
@@ -66,4 +97,5 @@ def get_bitcoin_historical_prices(days = 60):
     df['Date'] = pd.to_datetime(df['Timestamp'], unit='ms').dt.normalize()
     df = df[['Date', 'Close Price (USD)']].set_index('Date')
     return df
+
 
