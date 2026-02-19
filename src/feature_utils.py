@@ -4,91 +4,67 @@ import datetime
 import yfinance as yf
 import pandas_datareader.data as web
 import requests
-#from datetime import datetime, timedelta
 import os
 import sys
-
-import os
-import sys
-
-
-# ... continue with your script ...
 
 def extract_features():
-
     return_period = 5
     
+    # 1. Define Dates and Tickers
     START_DATE = (datetime.date.today() - datetime.timedelta(days=365)).strftime("%Y-%m-%d")
     END_DATE = datetime.date.today().strftime("%Y-%m-%d")
-    stk_tickers = ['AAPL','AAL','DAL','TSLA']
-    ccy_tickers = ['DEXJPUS', 'DEXUSUK','DEXCHUS']
+    
+    stk_tickers = ['AAPL', 'AAL', 'DAL', 'TSLA'] # Updated for your selection
+    ccy_tickers = ['DEXJPUS', 'DEXUSUK', 'DEXCHUS']
     idx_tickers = ['SP500', 'DJIA', 'VIXCLS']
     
+    # 2. Download Data
     stk_data = yf.download(stk_tickers, start=START_DATE, end=END_DATE, auto_adjust=False)
-    #stk_data = web.DataReader(stk_tickers, 'yahoo')
     ccy_data = web.DataReader(ccy_tickers, 'fred', start=START_DATE, end=END_DATE)
     idx_data = web.DataReader(idx_tickers, 'fred', start=START_DATE, end=END_DATE)
 
+    # 3. Create Target (Y) - 5-day future returns for AAPL
     Y = np.log(stk_data.loc[:, ('Adj Close', 'AAPL')]).diff(return_period).shift(-return_period)
-    Y.name = Y.name[-1]+'_Future'
+    Y.name = 'AAPL_Future'
     
-    X1 = np.log(stk_data.loc[:, ('Adj Close', ('AAL','DAL','TSLA'))]).diff(return_period)
+    # 4. Create Feature Sets (X1, X2, X3)
+    X1 = np.log(stk_data.loc[:, ('Adj Close', ('AAL', 'DAL', 'TSLA'))]).diff(return_period)
     X1.columns = X1.columns.droplevel()
     X2 = np.log(ccy_data).diff(return_period)
     X3 = np.log(idx_data).diff(return_period)
 
+    # 5. Create Technical Indicator Features (X4) - Mandatory for Assignment
+    # Momentum
+    X4_1 = np.log(stk_data.loc[:, ('Adj Close', 'AAPL')]).diff(5)
+    # Volatility
+    X4_2 = (stk_data.loc[:, ('High', 'AAPL')] - stk_data.loc[:, ('Low', 'AAPL')])
+    # Price Gap
+    X4_3 = stk_data.loc[:, ('Open', 'AAPL')] - stk_data.loc[:, ('Adj Close', 'AAPL')].shift(1)
+    # SMA Ratio
+    sma20 = stk_data.loc[:, ('Adj Close', 'AAPL')].rolling(window=20).mean()
+    X4_4 = stk_data.loc[:, ('Adj Close', 'AAPL')] / sma20
 
-# --- ADD THIS LOGIC BEFORE YOUR X = pd.concat LINE ---
+    X4 = pd.concat([X4_1, X4_2, X4_3, X4_4], axis=1)
+    X4.columns = ['AAPL_Mom', 'AAPL_Vol', 'AAPL_Gap', 'AAPL_SMA_Ratio']
 
-# 1. Price Momentum (5-day return)
-X4_1 = np.log(stk_data.loc[:, ('Adj Close', 'AAPL')]).diff(5)
-
-# 2. Daily Volatility (High minus Low)
-X4_2 = (stk_data.loc[:, ('High', 'AAPL')] - stk_data.loc[:, ('Low', 'AAPL')])
-
-# 3. Gap (Open minus previous Close)
-X4_3 = stk_data.loc[:, ('Open', 'AAPL')] - stk_data.loc[:, ('Adj Close', 'AAPL')].shift(1)
-
-# 4. Simple Moving Average Ratio (Current Price / 20-day SMA)
-sma20 = stk_data.loc[:, ('Adj Close', 'AAPL')].rolling(window=20).mean()
-X4_4 = stk_data.loc[:, ('Adj Close', 'AAPL')] / sma20
-
-# Combine them into X4
-X4 = pd.concat([X4_1, X4_2, X4_3, X4_4], axis=1)
-X4.columns = ['AAPL_Mom', 'AAPL_Vol', 'AAPL_Gap', 'AAPL_SMA_Ratio']
-
-# --- NOW UPDATE YOUR CONCAT LINE ---
-
-
-
-
-    
+    # 6. Combine all 13 features
     X = pd.concat([X1, X2, X3, X4], axis=1)
     
+    # 7. Final Data Processing
     dataset = pd.concat([Y, X], axis=1).dropna().iloc[::return_period, :]
-    Y = dataset.loc[:, Y.name]
-    X = dataset.loc[:, X.columns]
-    dataset.index.name = 'Date'
-    #dataset.to_csv(r"./test_data.csv")
-    features = dataset.sort_index()
-    features = features.reset_index(drop=True)
-    features = features.iloc[:,1:]
-
     
-    # Return only the X columns (features) without cutting any off
+    # CRITICAL FIX: Return exactly the 13 columns in X. 
+    # Do NOT use iloc[:, 1:] as it removes the first feature.
     features = dataset[X.columns].sort_index().reset_index(drop=True)
     
     return features
 
-
-def get_bitcoin_historical_prices(days = 60):
-    
+def get_bitcoin_historical_prices(days=60):
     BASE_URL = "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart"
-    
     params = {
         'vs_currency': 'usd',
         'days': days,
-        'interval': 'daily' # Ensure we get daily granularity
+        'interval': 'daily'
     }
     response = requests.get(BASE_URL, params=params)
     data = response.json()
@@ -97,5 +73,3 @@ def get_bitcoin_historical_prices(days = 60):
     df['Date'] = pd.to_datetime(df['Timestamp'], unit='ms').dt.normalize()
     df = df[['Date', 'Close Price (USD)']].set_index('Date')
     return df
-
-
