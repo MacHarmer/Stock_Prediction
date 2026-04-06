@@ -112,8 +112,8 @@ def call_model_api(input_df):
 def display_explanation(input_df, session, aws_bucket):
     explainer_name = MODEL_INFO["explainer"]
     explainer = load_shap_explainer(session, aws_bucket, posixpath.join('explainer', explainer_name),os.path.join(tempfile.gettempdir(), explainer_name))
-
-    dataset = pd.read_csv(os.path.join(current_dir, 'SP500Data.csv'), index_col=0)
+    
+    dataset = pd.read_csv(r'./SP500Data.csv',index_col=0)
     random = 'AMZN'
     random_price = json.loads(request_body)[random]
     closest_date = (dataset[random] - float(random_price)).abs().idxmin()
