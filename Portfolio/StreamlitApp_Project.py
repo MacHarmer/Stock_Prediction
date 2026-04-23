@@ -219,7 +219,7 @@ if submitted:
     print(original)
 
     with st.spinner("Running prediction..."):
-        res, status = call_model_api(original)
+        res, status = call_model_api([original])
 
     if status == 200:
         st.markdown("---")
