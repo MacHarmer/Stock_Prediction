@@ -214,10 +214,10 @@ if submitted:
     # Start from first row of X_train, override with user inputs
     original = dataset.iloc[0:1].copy().to_dict(orient='records')[0]
     original.update(user_inputs)
-    input_df = pd.DataFrame([original])
+    #input_df = pd.DataFrame([original])
 
     with st.spinner("Running prediction..."):
-        res, status = call_model_api(input_df)
+        res, status = call_model_api(original)
 
     if status == 200:
         st.markdown("---")
@@ -234,7 +234,7 @@ if submitted:
                 pd.DataFrame([user_inputs]).T.rename(columns={0: "Value"}),
                 use_container_width=True
             )
-        display_explanation(input_df, session, aws_bucket)
+        display_explanation(original, session, aws_bucket)
     else:
         st.error(res)
 
