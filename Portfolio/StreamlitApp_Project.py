@@ -215,6 +215,7 @@ if submitted:
     original = dataset.iloc[0:1].copy().to_dict(orient='records')[0]
     original.update(user_inputs)
     #input_df = pd.DataFrame([original])
+    print(original)
 
     with st.spinner("Running prediction..."):
         res, status = call_model_api(original)
