@@ -30,7 +30,7 @@ if project_root not in sys.path:
 file_path = os.path.join(project_root, 'Portfolio/X_train.csv')
 print(file_path)
 dataset = pd.read_csv(file_path)
-dataset = dataset.loc[:, ~dataset.columns.str.contains('^Unnamed')]
+#dataset = dataset.loc[:, ~dataset.columns.str.contains('^Unnamed')]
 
 # ── AWS Secrets ───────────────────────────────────────────────────────────────
 aws_id       = st.secrets["aws_credentials"]["AWS_ACCESS_KEY_ID"]
@@ -213,8 +213,6 @@ with st.form("pred_form"):
 # ── On Submit ─────────────────────────────────────────────────────────────────
 if submitted:
     # Start from first row of X_train, override with user inputs
-    dataset['Unnamed: 0_x']=[0]*len(dataset)
-    dataset['Unnamed: 0_y']=[0]*len(dataset)
     original = dataset.iloc[0].to_dict()#orient='records')#[0]
     original.update(user_inputs)
     #input_df = pd.DataFrame([original])
