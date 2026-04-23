@@ -213,6 +213,8 @@ with st.form("pred_form"):
 # ── On Submit ─────────────────────────────────────────────────────────────────
 if submitted:
     # Start from first row of X_train, override with user inputs
+    dataset['Unnamed: 0_y']=[0]*len(dataset)
+    dataset['Unnamed: 0_x']=[0]*len(dataset)
     original = dataset.iloc[0].to_dict()#orient='records')#[0]
     original.update(user_inputs)
     #input_df = pd.DataFrame([original])
