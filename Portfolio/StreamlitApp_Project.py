@@ -28,9 +28,9 @@ if project_root not in sys.path:
 
 # ── Load X_train baseline (used to fill non-input columns) ───────────────────
 file_path = os.path.join(project_root, 'Portfolio/X_train.csv')
-print(file_path)
+
 dataset = pd.read_csv(file_path)
-dataset = dataset.drop(['Unnamed: 0'], axis=1, errors='ignore')
+dataset = dataset.drop(['Unnamed: 0'], axis=1)
 #dataset = dataset.loc[:, ~dataset.columns.str.contains('^Unnamed')]
 
 
