@@ -30,7 +30,9 @@ if project_root not in sys.path:
 file_path = os.path.join(project_root, 'Portfolio/X_train.csv')
 print(file_path)
 dataset = pd.read_csv(file_path)
+dataset = dataset.drop([ Unnamed: 0'], axis=1)
 #dataset = dataset.loc[:, ~dataset.columns.str.contains('^Unnamed')]
+
 
 # ── AWS Secrets ───────────────────────────────────────────────────────────────
 aws_id       = st.secrets["aws_credentials"]["AWS_ACCESS_KEY_ID"]
