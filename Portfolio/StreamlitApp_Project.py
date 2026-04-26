@@ -215,8 +215,24 @@ with st.form("pred_form"):
 # ── On Submit ─────────────────────────────────────────────────────────────────
 if submitted:
     # Start from first row of X_train, override with user inputs
-    original = dataset.iloc[0].to_dict()#orient='records')#[0]
+    ###original = dataset.iloc[0].to_dict()#orient='records')#[0]
+    ###original.update(user_inputs)
+
+    original = dataset.iloc[0].to_dict()
     original.update(user_inputs)
+
+# Remove any unnamed columns before sending to endpoint
+    original = {k: v for k, v in original.items() if 'Unnamed' not in str(k)}
+
+# Convert all values to JSON-safe Python native types
+    original = {
+        k: float(v) if isinstance(v, (np.floating, np.float32, np.float64)) else
+           int(v) if isinstance(v, (np.integer, np.int32, np.int64)) else
+           None if isinstance(v, float) and np.isnan(v) else v
+        for k, v in original.items()
+    }
+
+    
     #input_df = pd.DataFrame([original])
     print(original)
 
